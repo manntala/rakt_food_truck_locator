@@ -9,21 +9,27 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 
     <style>
-        #map {
+         #map {
             height: 90vh;
             width: 100%;
         }
+
         .map-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background-color: white;
-            border: 2px solid #f56b2a;
+            border: 2px solid #f52a2a;
             border-radius: 50%;
-            text-align: center;
+            height: 36px;
+            width: 36px;
             font-size: 16px;
-            line-height: 30px;
-            height: 30px;
-            width: 30px;
-            color: #f56b2a;
+            color: #f52a2a;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            position: absolute;
+            transform: translate(-50%, -50%);
         }
+
 
         #controls {
             margin: auto;
@@ -96,35 +102,71 @@
                     icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
                 });
 
-                // Add food truck markers with detailed information
+                // Add food truck markers with FontAwesome icons
                 foodTrucks.forEach(truck => {
                     const truckData = truck.fields;
-                    const position = { lat: truckData.latitude, lng: truckData.longitude };
+                    const position = new google.maps.LatLng(truckData.latitude, truckData.longitude);
 
-                    const customMarker = new google.maps.Marker({
-                        position: position,
-                        map: map,
-                        title: truckData.applicant,
-                        icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                    });
+                    // Create a custom marker using OverlayView
+                    class CustomMarker extends google.maps.OverlayView {
+                        constructor(position, map) {
+                            super();
+                            this.position = position;
+                            this.div = null;
+                            this.setMap(map);
+                        }
 
-                    const infoWindow = new google.maps.InfoWindow({
-                        content: `
-                            <div class="map-info-window">
-                                <h3>${truckData.applicant}</h3>
-                                <p><strong>Facility Type:</strong> ${truckData.facility_type || "N/A"}</p>
-                                <p><strong>Location Description:</strong> ${truckData.location_description || "N/A"}</p>
-                                <p><strong>Address:</strong> ${truckData.address || "N/A"}</p>
-                                <p><strong>Food Items:</strong> ${truckData.food_items || "N/A"}</p>
-                            </div>
-                        `,
-                    });
+                        onAdd() {
+                            const div = document.createElement("div");
+                            div.className = "map-marker";
+                            div.innerHTML = '<i class="fas fa-truck"></i>'; // FontAwesome truck icon
 
-                    customMarker.addListener("click", () => {
-                        infoWindow.open(map, customMarker);
-                    });
+                            // Add click listener for info window
+                            div.addEventListener("click", () => {
+                                const infoWindow = new google.maps.InfoWindow({
+                                    content: `
+                                        <div class="map-info-window">
+                                            <h3>${truckData.applicant}</h3>
+                                            <p><strong>Facility Type:</strong> ${truckData.facility_type || "N/A"}</p>
+                                            <p><strong>Location Description:</strong> ${truckData.location_description || "N/A"}</p>
+                                            <p><strong>Address:</strong> ${truckData.address || "N/A"}</p>
+                                            <p><strong>Food Items:</strong> ${truckData.food_items || "N/A"}</p>
+                                        </div>
+                                    `,
+                                });
+                                infoWindow.open(map, null); // Info window opens at the marker's location
+                                infoWindow.setPosition(this.position); // Correctly map the position
+                            });
+
+                            this.div = div;
+                            const panes = this.getPanes();
+                            panes.overlayMouseTarget.appendChild(div);
+                        }
+
+                        draw() {
+                            if (!this.div) return;
+
+                            const overlayProjection = this.getProjection();
+                            const position = overlayProjection.fromLatLngToDivPixel(this.position);
+
+                            this.div.style.left = `${position.x - 20}px`;
+                            this.div.style.top = `${position.y - 20}px`;
+                        }
+
+                        onRemove() {
+                            if (this.div) {
+                                this.div.parentNode.removeChild(this.div);
+                                this.div = null;
+                            }
+                        }
+                    }
+
+                    // Add the custom marker to the map
+                    new CustomMarker(position, map);
                 });
             }
+
+
 
             window.onload = initMap;
         </script>
