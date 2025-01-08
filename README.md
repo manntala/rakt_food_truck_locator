@@ -1,5 +1,7 @@
 RAKT Food Truck locator
 
+NOTE: Most of the coordinates of the Food trucks are near this location, latitude=37.7601&longitude=-122.4188. It is best to select coordinates near this area.
+
 INSTALLATION:
 1. Create virtual environment then activate
 Command:
