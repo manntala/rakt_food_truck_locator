@@ -26,98 +26,95 @@
         }
 
         #controls {
-            margin-bottom: 24px;
-            margin-left: 24px;
+            margin: auto;
             width: 500px;
+
         }
     </style>
 </head>
 <body>
     <h1 style="text-align:center;">Nearest Food Trucks</h1>
 
+    <!-- Form for latitude and longitude input -->
+    <div id="controls">
+        <div class="form-group">
+            <form action="{% url 'food_trucks_api' %}" method="POST">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="col-md-6 mb-3">
+                        <label for="latitude">Latitude</label>
+                        <input class="form-control" type="number" name="latitude" id="latitude" placeholder="Enter Latitude" step="0.000001" required />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="longitude">Longitude</label>
+                        <input class="form-control" type="number" name="longitude" id="longitude" placeholder="Enter Longitude" step="0.000001" required />
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-block" type="submit">Update Map</button>
+            </form>
+        </div>
+    </div>
+    <div id="map"></div>
+
     {% if error %}
         <p style="color: red; text-align: center;">{{ error }}</p>
     {% elif food_trucks %}
 
-        <!-- Form for latitude and longitude input -->
-        <div id="controls">
-            <div class="form-group">
-                <form action="{% url 'food_trucks_api' %}" method="POST">
-                    {% csrf_token %}
-                    <div class="form-row">
-                        <div class="col-md-6 mb-3">
-                            <label for="latitude">Latitude</label>
-                            <input class="form-control" type="number" name="latitude" id="latitude" placeholder="Enter Latitude" step="0.000001" required />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="longitude">Longitude</label>
-                            <input class="form-control" type="number" name="longitude" id="longitude" placeholder="Enter Longitude" step="0.000001" required />
-                        </div>
-                    </div>
-                    <button class="btn btn-primary btn-block" type="submit">Update Map</button>
-                </form>
-            </div>
-        </div>
-        <div id="map"></div>
+        
 
         <script>
-            const foodTrucks = {{ food_trucks|safe }};  // This now holds the serialized data
+            const foodTrucks = {{ food_trucks|safe }}; // Serialized data
             const userLocation = { lat: {{ latitude }}, lng: {{ longitude }} };
-
-            console.log(foodTrucks)
 
             function initMap() {
                 const map = new google.maps.Map(document.getElementById("map"), {
                     zoom: 12,
                     center: userLocation,
+                    styles: [
+                        {
+                            featureType: "all",
+                            stylers: [{ saturation: -80 }]
+                        },
+                        {
+                            featureType: "road.arterial",
+                            elementType: "geometry",
+                            stylers: [{ lightness: 50 }]
+                        },
+                        {
+                            featureType: "poi.business",
+                            elementType: "labels",
+                            stylers: [{ visibility: "off" }]
+                        }
+                    ]
                 });
 
                 // User's location marker
-                const userMarker = new google.maps.Marker({
+                new google.maps.Marker({
                     position: userLocation,
                     map: map,
                     title: "Your Location",
                     icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
                 });
 
-                // Add food truck markers with Font Awesome
+                // Add food truck markers with detailed information
                 foodTrucks.forEach(truck => {
                     const truckData = truck.fields;
                     const position = { lat: truckData.latitude, lng: truckData.longitude };
-                    let iconClass;
-
-                    switch (truckData.facility_type) {
-                        case 'Truck':
-                            iconClass = 'fa-truck';
-                            break;
-                        case 'Cart':
-                            iconClass = 'fa-shopping-cart';
-                            break;
-                        case 'Stand':
-                            iconClass = 'fa-store';
-                            break;
-                        default:
-                            iconClass = 'fa-map-marker-alt';
-                    }
-
-                    const markerDiv = document.createElement('div');
-                    markerDiv.className = 'map-marker';
-                    markerDiv.innerHTML = `<i class="${iconClass}"></i>`;
 
                     const customMarker = new google.maps.Marker({
                         position: position,
                         map: map,
                         title: truckData.applicant,
-                        icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                        icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
                     });
 
                     const infoWindow = new google.maps.InfoWindow({
                         content: `
-                            <div>
+                            <div class="map-info-window">
                                 <h3>${truckData.applicant}</h3>
-                                <p><strong>Facility Type:</strong> ${truckData.facility_type}</p>
-                                <p><strong>Location:</strong> ${truckData.location_description}</p>
-                                <p><strong>Address:</strong> ${truckData.address}</p>
+                                <p><strong>Facility Type:</strong> ${truckData.facility_type || "N/A"}</p>
+                                <p><strong>Location Description:</strong> ${truckData.location_description || "N/A"}</p>
+                                <p><strong>Address:</strong> ${truckData.address || "N/A"}</p>
                                 <p><strong>Food Items:</strong> ${truckData.food_items || "N/A"}</p>
                             </div>
                         `,
