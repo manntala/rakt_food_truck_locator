@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Trucks Map</title>
+    <!-- <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVkPzngVL6XCGUqrv-mTS6RpCZBkov_-0&libraries=places"></script> -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVkPzngVL6XCGUqrv-mTS6RpCZBkov_-0&libraries=places&region=US&callback=initMap"></script>
+
+    <style>
+        #map {
+            height: 90vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align:center;">Nearest Food Trucks</h1>
+
+    {% if error %}
+        <p style="color: red; text-align: center;">{{ error }}</p>
+    {% elif food_trucks %}
+        <div id="map"></div>
+
+        <script>
+            const foodTrucks = {{ food_trucks|safe }};  // This now holds the serialized data
+            const userLocation = { lat: {{ latitude }}, lng: {{ longitude }} };
+
+            console.log(foodTrucks)
+
+            function initMap() {
+                const map = new google.maps.Map(document.getElementById("map"), {
+                    zoom: 12,
+                    center: userLocation,
+                });
+
+                const userMarker = new google.maps.Marker({
+                    position: userLocation,
+                    map: map,
+                    title: "Your Location",
+                    icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                });
+
+                foodTrucks.forEach(truck => {
+                    const truckData = truck.fields;  // Corrected to access fields
+                    const position = { lat: truckData.latitude, lng: truckData.longitude };
+                    let iconUrl;
+
+                    switch (truckData.facility_type) {
+                        case 'Truck':
+                            iconUrl = 'http://maps.google.com/mapfiles/kml/pal4/icon44.png';  // Icon for trucks
+                            break;
+                        case 'Cart':
+                            iconUrl = 'http://maps.google.com/mapfiles/kml/pal4/icon32.png';  // Icon for carts
+                            break;
+                        case 'Stand':
+                            iconUrl = 'http://maps.google.com/mapfiles/kml/pal4/icon42.png';  // Icon for stands
+                            break;
+                        default:
+                            iconUrl = 'http://maps.google.com/mapfiles/ms/icons/red-dot.png';  // Default icon
+                    }
+
+                    const marker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: truckData.applicant,
+                        icon: iconUrl,
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div>
+                                <h3>${truckData.applicant}</h3>
+                                <p><strong>Facility Type:</strong> ${truckData.facility_type}</p>
+                                <p><strong>Location:</strong> ${truckData.location_description}</p>
+                                <p><strong>Address:</strong> ${truckData.address}</p>
+                                <p><strong>Food Items:</strong> ${truckData.food_items || "N/A"}</p>
+                            </div>
+                        `,
+                    });
+
+                    marker.addListener("click", () => {
+                        infoWindow.open(map, marker);
+                    });
+                });
+            }
+
+
+            // Initialize the map
+            window.onload = initMap;
+        </script>
+    {% endif %}
+</body>
+</html>
