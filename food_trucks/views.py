@@ -85,21 +85,67 @@ class FoodTruckMapView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        latitude = self.request.GET.get("latitude")
-        longitude = self.request.GET.get("longitude")
+        
+        # default data for GET
+        latitude = 37.77
+        longitude = -122.4188
 
-        if not latitude or not longitude:
+        if latitude and longitude:
+            try:
+                latitude = float(latitude)
+                longitude = float(longitude)
+            except ValueError:
+                context["error"] = "Invalid latitude or longitude values."
+                logger.error(f"Invalid latitude or longitude values: {latitude}, {longitude}")
+                return context
+            
+            user_location = (latitude, longitude)
+            trucks = FoodTruck.objects.all()
+            trucks_with_distance = [
+                (truck, geodesic(user_location, (truck.latitude, truck.longitude)).miles)
+                for truck in trucks
+            ]
+            trucks_with_distance.sort(key=lambda x: x[1])  # Sort by distance
+            nearest_trucks = [truck[0] for truck in trucks_with_distance[:5]]  # Get nearest 5
+
+            # Serialize food trucks to JSON
+            food_trucks_serialized = serialize('json', nearest_trucks)
+            logger.info(f"Serialized food trucks data from GET request: {food_trucks_serialized}")
+
+            context["food_trucks"] = food_trucks_serialized
+            context["latitude"] = latitude
+            context["longitude"] = longitude
+            context["error"] = ""  # Clear any previous error message
+            return context
+
+        else:
             context["error"] = "Latitude and longitude are required."
             logger.error("Latitude and longitude are missing in the request.")
             return context
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handles POST requests, accepts latitude and longitude in the request body.
+        """
+        latitude = request.POST.get('latitude')
+        longitude = request.POST.get('longitude')
+
+        if not latitude or not longitude:
+            context = {
+                "error": "Latitude and longitude are required in the request body.",
+            }
+            logger.error("Latitude and longitude are missing in the POST request.")
+            return self.render_to_response(context)
 
         try:
             latitude = float(latitude)
             longitude = float(longitude)
         except ValueError:
-            context["error"] = "Invalid latitude or longitude values."
-            logger.error(f"Invalid latitude or longitude values: {latitude}, {longitude}")
-            return context
+            context = {
+                "error": "Invalid latitude or longitude values.",
+            }
+            logger.error(f"Invalid latitude or longitude values in POST request: {latitude}, {longitude}")
+            return self.render_to_response(context)
 
         user_location = (latitude, longitude)
         trucks = FoodTruck.objects.all()
@@ -112,20 +158,24 @@ class FoodTruckMapView(TemplateView):
 
         # Serialize food trucks to JSON
         food_trucks_serialized = serialize('json', nearest_trucks)
-        logger.info(f"Serialized food trucks data: {food_trucks_serialized}")
+        logger.info(f"Serialized food trucks data from POST request: {food_trucks_serialized}")
 
-        context["food_trucks"] = food_trucks_serialized
-        context["latitude"] = latitude
-        context["longitude"] = longitude
-        context["error"] = ""  # Clear any previous error message
-        return context
+        context = {
+            "food_trucks": food_trucks_serialized,
+            "latitude": latitude,
+            "longitude": longitude,
+            "error": "",
+        }
+        return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
-        if context["food_trucks"]:
+        if context.get("food_trucks"):  # Check if serialized data exists
             logger.info("Returning food truck map view with food truck data.")
-            # Display the data in the template as well
             context["food_trucks_display"] = context["food_trucks"]  # This allows access in the template
             return super().render_to_response(context, **response_kwargs)
         else:
             logger.warning("No food trucks found to display.")
+            context["error"] = "No food trucks found nearby."
             return super().render_to_response(context, **response_kwargs)
+
+
